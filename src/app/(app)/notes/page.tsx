@@ -3,10 +3,12 @@
 import * as React from "react";
 import { getNotesAction, deleteNoteAction, togglePinNoteAction } from "@/server/actions/notes";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Trash2, Pin, Search, Filter } from "lucide-react";
+import { Plus, FileText, Trash2, Pin, Search, Download } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
 
 interface NoteItem {
@@ -27,6 +29,7 @@ export default function NotesPage() {
   const [search, setSearch] = React.useState("");
   const [category, setCategory] = React.useState("");
   const [archived, setArchived] = React.useState(false);
+  const [exportFormat, setExportFormat] = React.useState<"json" | "markdown" | "text">("json");
 
   React.useEffect(() => {
     loadNotes();
@@ -56,6 +59,20 @@ export default function NotesPage() {
     loadNotes();
   }
 
+  async function handleExport() {
+    const res = await fetch(`/api/notes/export?format=${exportFormat}`);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `noteapp-export-${new Date().toISOString().split("T")[0]}.${exportFormat}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -68,6 +85,24 @@ export default function NotesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="export-format" className="text-xs text-muted-foreground">
+              Export:
+            </Label>
+            <Select value={exportFormat} onValueChange={setExportFormat}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="markdown">Markdown</SelectItem>
+                <SelectItem value="text">Plain Text</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={handleExport} size="sm" variant="outline">
+              <Download className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
           <Link href="/notes/new">
             <Button className="flex items-center gap-2">
               <Plus className="h-4 w-4" /> New Note

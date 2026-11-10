@@ -4,13 +4,14 @@ import * as React from "react";
 import { getNoteByIdAction, updateNoteAction } from "@/server/actions/notes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RichTextEditor } from "@/components/notes/rich-text-editor";
+import { Sparkles } from "lucide-react";
 
 interface NoteParams {
   params: Promise<{ id: string }>;
@@ -27,9 +28,13 @@ export default function EditNotePage({ params }: NoteParams) {
   const [isArchived, setIsArchived] = React.useState(false);
   const [isPending, setIsPending] = React.useState(false);
   const [message, setMessage] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [aiState, setAIState] = React.useState<{
+    loading: boolean;
+    result: { title?: string; tags?: string[]; summary?: string } | null;
+    error?: string;
+  }>({ loading: false, result: null, error: undefined });
 
   const id = React.useMemo(() => {
-    // params will be resolved
     return "";
   }, []);
 
@@ -80,6 +85,62 @@ export default function EditNotePage({ params }: NoteParams) {
     }
   }
 
+  async function handleAIEnhance() {
+    if (!content.trim()) {
+      setAIState({ loading: false, result: null, error: "Please write some content first" });
+      return;
+    }
+
+    setAIState({ loading: true, result: null, error: undefined });
+
+    try {
+      const res = await fetch("/api/ai/enhance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAIState({ loading: false, result: null, error: data.error || "AI enhancement failed" });
+        return;
+      }
+
+      setAIState({
+        loading: false,
+        result: {
+          title: data.title?.title,
+          tags: data.tags?.tags,
+          summary: data.summary?.summary,
+        },
+        error: undefined,
+      });
+    } catch {
+      setAIState({ loading: false, result: null, error: "AI enhancement failed" });
+    }
+  }
+
+  function applyAIResult() {
+    if (!aiState.result) return;
+
+    const { title: aiTitle, tags: aiTags, summary: aiSummary } = aiState.result;
+
+    if (aiTitle && !title) {
+      setTitle(aiTitle);
+    }
+
+    if (aiTags && aiTags.length > 0) {
+      setTags(aiTags.join(", "));
+    }
+
+    if (aiSummary) {
+      setContent((prev) => (prev ? `${prev}\n\n---\n\n${aiSummary}` : aiSummary));
+    }
+
+    setAIState({ loading: false, result: null, error: undefined });
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -90,7 +151,7 @@ export default function EditNotePage({ params }: NoteParams) {
   if (!note) return notFound();
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <Link href={`/notes/${id}`}>
           <Button variant="outline" size="sm" className="flex items-center gap-2">
@@ -118,30 +179,135 @@ export default function EditNotePage({ params }: NoteParams) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  className="flex-1"
+                />
+                {aiState.result?.title && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setTitle(aiState.result!.title!)}
+                    disabled={!aiState.result.title}
+                  >
+                    <Sparkles className="h-4 w-4" /> AI
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="content">Content</Label>
-              <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} className="min-h-[250px]" required />
+              <RichTextEditor
+                value={content}
+                onChange={setContent}
+                placeholder="Write your note here..."
+              />
+              <div className="flex items-center gap-2 mt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAIEnhance}
+                  disabled={aiState.loading || !content.trim()}
+                >
+                  {aiState.loading ? "Enhancing..." : "✨ AI Enhance"}
+                </Button>
+                {aiState.result && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={applyAIResult}
+                  >
+                    <span className="flex items-center gap-1">
+                      Apply <span className="ml-1">Suggestions</span>
+                    </span>
+                  </Button>
+                )}
+              </div>
+              {aiState.error && (
+                <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">
+                  {aiState.error}
+                </div>
+              )}
+              {aiState.result && (
+                <div className="mt-3 p-3 rounded-md bg-accent/50 border border-accent/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">AI Suggestions</span>
+                  </div>
+                  {aiState.result.summary && (
+                    <div className="mb-2">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">Summary</div>
+                      <p className="text-sm text-muted-foreground">{aiState.result.summary}</p>
+                    </div>
+                  )}
+                  {aiState.result.tags && aiState.result.tags.length > 0 && (
+                    <div className="mb-2">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">Suggested Tags</div>
+                      <div className="flex gap-1 flex-wrap">
+                        {aiState.result.tags.map((tag) => (
+                          <span key={tag} className="px-2 py-0.5 rounded text-xs bg-primary/10 text-primary">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} />
+                <Input
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tags">Tags</Label>
-                <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} />
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="tags"
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                  />
+                  {aiState.result?.tags && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
+                        const newTags = [...new Set([...tagList, ...aiState.result.tags])];
+                        setTags(newTags.join(", "));
+                      }}
+                    >
+                      <span className="flex items-center gap-1">AI Tags</span>
+                    </Button>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">Comma-separated</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox id="isPinned" checked={Boolean(isPinned)} onCheckedChange={setIsPinned} />
-              <Label htmlFor="isPinned" className="text-sm text-muted-foreground">Pin this note</Label>
+              <Label htmlFor="isPinned" className="text-sm text-muted-foreground">
+                Pin this note
+              </Label>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox id="isArchived" checked={Boolean(isArchived)} onCheckedChange={setIsArchived} />
-              <Label htmlFor="isArchived" className="text-sm text-muted-foreground">Archive this note</Label>
+              <Label htmlFor="isArchived" className="text-sm text-muted-foreground">
+                Archive this note
+              </Label>
             </div>
           </CardContent>
         </Card>
