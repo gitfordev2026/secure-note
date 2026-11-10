@@ -8,13 +8,6 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "noteapp-db"
 
-[build]
-command = "pnpm build"
-command = "pnpm build"
-# Cloudflare Pages will detect this is a Next.js project
-# Output directory for Next.js on Pages
-publish_directory = ".next"
-
 [dev]
 port = 3080
 
