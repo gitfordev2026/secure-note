@@ -1,17 +1,26 @@
 # Cloudflare Pages + D1 configuration for NoteApp
-name = 'secure-note'
-compatibility_date = "2026-01-01"
+name = "noteapp"
+compatibility_date = "2026-11-10"
 compatibility_flags = ["nodejs_compat"]
 
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
 database_name = "noteapp-db"
-database_id = "4c48548d-84d8-4244-8c48-068fb40d5024"
+
+[build]
+command = "pnpm build"
+command = "pnpm build"
+# Cloudflare Pages will detect this is a Next.js project
+# Output directory for Next.js on Pages
+publish_directory = ".next"
 
 [dev]
 port = 3080
 
 [vars]
-NEXT_PUBLIC_APP_URL = "http://localhost:3080"
+NEXT_PUBLIC_APP_URL = "https://noteapp.pages.dev"
 NEXT_PUBLIC_SITE_NAME = "NoteApp"
+
+[observability]
+enabled = true
