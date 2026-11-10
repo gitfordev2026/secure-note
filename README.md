@@ -138,21 +138,30 @@ npx wrangler d1 execute noteapp-db --file=./src/db/migrations/000X_migration.sql
 ### Option 1: GitHub Integration (Recommended)
 
 1. Push this repository to GitHub
-2. In the Cloudflare Dashboard, go to Pages → Create a project → Connect to Git
-3. Select the NoteApp repository
-4. Configure build settings:
-   - Build command: `pnpm build`
-   - Build output directory: `.next`
-   - Compatibility flag: `Node.js compat`
-5. Add a D1 database binding:
-   - Go to Pages → Your project → Settings → D1 databases
+2. In the Cloudflare Dashboard, go to **Pages → Create a project → Connect to Git**
+3. Select the NoteApp repository (`gitfordev2026/secure-note`)
+4. Select the `dsh-noteapp` branch (or your production branch)
+5. Configure build settings:
+   - **Framework preset:** Next.js
+   - **Build command:** `pnpm build`
+   - **Build output directory:** `.next`
+   - **Node.js version:** `20`
+   - **Package manager:** `pnpm` (if available; otherwise Cloudflare will auto-detect)
+6. Add a **D1 database binding**:
+   - Go to **Pages → Your project → Settings → D1 databases**
    - Bind your `noteapp-db` database to the `DB` variable
-6. Add environment variables/secrets:
-   - `SESSION_SECRET`
-   - `NEXT_PUBLIC_APP_URL`
-   - `BOOTSTRAP_TOKEN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (for initial admin)
-7. Enable automatic deployments on push to `main`
-8. Preview deployments are enabled automatically for other branches
+7. Add environment variables/secrets:
+   - `SESSION_SECRET` (generate with `openssl rand -base64 32`)
+   - `NEXT_PUBLIC_APP_URL` (your Pages URL, e.g. `https://noteapp.pages.dev`)
+   - `NEXT_PUBLIC_SITE_NAME` (optional, defaults to "NoteApp")
+   - `BOOTSTRAP_TOKEN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` (for initial admin bootstrap)
+8. Enable automatic deployments on push to your production branch
+9. Preview deployments are enabled automatically for pull requests
+
+**Troubleshooting:** If Cloudflare Pages cannot find `package.json`, ensure:
+- The repository root contains `package.json` (it does in this repo)
+- You're connected to the correct GitHub repository and branch
+- The build command is set to `pnpm build` (not `npm run build`)
 
 ### Option 2: Wrangler CLI
 
