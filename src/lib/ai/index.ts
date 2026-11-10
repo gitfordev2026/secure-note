@@ -8,6 +8,8 @@
  * Falls back to local heuristics when no AI provider is configured.
  */
 
+import type { Env } from "@/types";
+
 export interface AISummaryResult {
   summary: string;
   keyPoints: string[];

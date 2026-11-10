@@ -14,17 +14,19 @@ import {
   Bold,
   Italic,
   Underline,
-  Strike,
-  Heading1,
-  Heading2,
-  BulletList,
-  OrderedList,
-  Blockquote as BlockquoteIcon,
-  CodeBlock as CodeBlockIcon,
+  Strikethrough,
+  Heading,
+  ListOrdered,
+  List,
+  Quote,
+  Code2,
   Link as LinkIcon,
   Image as ImageIcon,
   MoreHorizontal,
-  Plus,
+  PlusCircle,
+  Sparkles,
+  Copy,
+  ArrowRight,
 } from "lucide-react";
 
 interface RichTextEditorProps {
@@ -50,7 +52,7 @@ const extensions = [
 ];
 
 const toolbarButton = ({
-  icon: Icon,
+  icon: IconComponent,
   title,
   active,
   onClick,
@@ -58,7 +60,7 @@ const toolbarButton = ({
 }: {
   icon: React.ElementType;
   title: string;
-  active: boolean;
+  active?: boolean;
   onClick: () => void;
   disabled?: boolean;
 }) => (
@@ -77,7 +79,7 @@ const toolbarButton = ({
     title={title}
     aria-label={title}
   >
-    <Icon className="h-4 w-4" />
+    <IconComponent className="h-4 w-4" />
   </button>
 );
 
@@ -143,7 +145,7 @@ export function RichTextEditor({
           disabled,
         })}
         {toolbarButton({
-          icon: Strike,
+          icon: Strikethrough,
           title: "Strikethrough",
           active: isActive("strike"),
           onClick: () => editor.chain().focus().toggleStrike().run(),
@@ -151,36 +153,36 @@ export function RichTextEditor({
         })}
         <div className="h-4 w-px bg-border mx-1" />
         {toolbarButton({
-          icon: Heading1,
-          title: "Heading 1",
-          active: isActive("heading", { level: 1 }),
+          icon: Heading,
+          title: "Heading",
+          active: isActive("heading"),
           onClick: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
           disabled,
         })}
         {toolbarButton({
-          icon: Heading2,
-          title: "Heading 2",
-          active: isActive("heading", { level: 2 }),
+          icon: Heading,
+          title: "Subheading",
+          active: isActive("heading"),
           onClick: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
           disabled,
         })}
         <div className="h-4 w-px bg-border mx-1" />
         {toolbarButton({
-          icon: BulletList,
+          icon: List,
           title: "Bullet List",
           active: isActive("bulletList"),
           onClick: () => editor.chain().focus().toggleBulletList().run(),
           disabled,
         })}
         {toolbarButton({
-          icon: OrderedList,
+          icon: ListOrdered,
           title: "Ordered List",
           active: isActive("orderedList"),
           onClick: () => editor.chain().focus().toggleOrderedList().run(),
           disabled,
         })}
         {toolbarButton({
-          icon: BlockquoteIcon,
+          icon: Quote,
           title: "Quote",
           active: isActive("blockquote"),
           onClick: () => editor.chain().focus().toggleBlockquote().run(),
@@ -202,7 +204,7 @@ export function RichTextEditor({
         })}
         <div className="ml-auto h-4 w-px bg-border" />
         {toolbarButton({
-          icon: MoreHorizontal,
+          icon: PlusCircle,
           title: "More",
           onClick: () => {},
           disabled: true,

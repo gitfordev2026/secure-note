@@ -266,7 +266,7 @@ export default function NewNotePage() {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        const newTags = [...new Set([...tagList, ...aiState.result.tags])];
+                        const newTags = [...new Set([...tagList, ...(aiState.result?.tags || [])])];
                         setTags(newTags.join(", "));
                       }}
                     >

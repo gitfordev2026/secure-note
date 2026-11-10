@@ -286,7 +286,7 @@ export default function EditNotePage({ params }: NoteParams) {
                       variant="outline"
                       onClick={() => {
                         const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
-                        const newTags = [...new Set([...tagList, ...aiState.result.tags])];
+                        const newTags = [...new Set([...tagList, ...(aiState.result?.tags || [])])];
                         setTags(newTags.join(", "));
                       }}
                     >

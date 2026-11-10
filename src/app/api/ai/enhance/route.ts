@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/server/auth";
 import { enhanceNote } from "@/lib/ai";
+import type { Env } from "@/types";
 
 export async function POST(request: Request) {
   try {
@@ -14,9 +15,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
     }
 
-    const env = {
-      AI: (process.env as any).AI,
+    const env: Env = {
       DB: (process.env as any).DB,
+      SESSION_SECRET: process.env.SESSION_SECRET || "",
+      AI: (process.env as any).AI,
     };
 
     const result = await enhanceNote(content, env);

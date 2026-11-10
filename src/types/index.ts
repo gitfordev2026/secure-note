@@ -57,6 +57,7 @@ export interface Env {
   SESSION_SECRET: string;
   NEXT_PUBLIC_APP_URL?: string;
   NEXT_PUBLIC_SITE_NAME?: string;
+  AI?: any;
 }
 
 export interface PaginationMeta {

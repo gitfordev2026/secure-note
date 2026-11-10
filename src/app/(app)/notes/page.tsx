@@ -89,7 +89,7 @@ export default function NotesPage() {
             <Label htmlFor="export-format" className="text-xs text-muted-foreground">
               Export:
             </Label>
-            <Select value={exportFormat} onValueChange={setExportFormat}>
+            <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as "json" | "markdown" | "text")}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Format" />
               </SelectTrigger>
