@@ -6,6 +6,11 @@ import type { Env, User, Session } from "@/types";
 
 const SALT_ROUNDS = 12;
 
+// Session security constants
+const MAX_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SESSION_ROTATION_THRESHOLD_MS = 15 * 60 * 1000; // Rotate token if older than 15 min
+const MAX_CONCURRENT_SESSIONS = 5; // Max active sessions per user
+
 /** Hash a plaintext password with bcrypt. */
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
@@ -32,15 +37,40 @@ export async function hashSessionToken(token: string): Promise<string> {
   return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** Enforce max concurrent sessions: delete oldest if at limit */
+async function enforceMaxConcurrentSessions(
+  db: any,
+  userId: string,
+): Promise<void> {
+  const allSessions = await db
+    .select()
+    .from(sessions)
+    .where(eq(sessions.userId, userId))
+    .orderBy(desc(sessions.createdAt));
+
+  const sessionList = allSessions as any[];
+  if (sessionList.length >= MAX_CONCURRENT_SESSIONS) {
+    // Delete the oldest session(s) beyond the limit
+    const toDelete = sessionList.slice(MAX_CONCURRENT_SESSIONS - 1);
+    for (const s of toDelete) {
+      await db.delete(sessions).where(eq(sessions.id, s.id));
+    }
+  }
+}
+
 /** Create a session for a user and return the plain token + session row. */
 export async function createSession(
   env: Env,
   userId: string,
 ): Promise<{ token: string; session: Session }> {
   const db = createDb(env);
+
+  // Enforce max concurrent sessions before creating new one
+  await enforceMaxConcurrentSessions(db, userId);
+
   const token = generateSessionToken();
   const tokenHash = await hashSessionToken(token);
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  const expiresAt = new Date(Date.now() + MAX_SESSION_DURATION_MS);
 
   const [session] = await db
     .insert(sessions)
@@ -58,7 +88,7 @@ export async function createSession(
 export async function validateSession(
   env: Env,
   token: string,
-): Promise<{ user: User; session: Session } | null> {
+): Promise<{ user: User; session: Session; needsRotation: boolean } | null> {
   const tokenHash = await hashSessionToken(token);
   const db = createDb(env);
 
@@ -90,10 +120,40 @@ export async function validateSession(
     return null;
   }
 
+  // Determine if token needs rotation (older than threshold)
+  const createdAt = new Date((session as any).createdAt);
+  const needsRotation = now.getTime() - createdAt.getTime() > SESSION_ROTATION_THRESHOLD_MS;
+
   return {
     user: user as unknown as User,
     session: session as unknown as Session,
+    needsRotation,
   };
+}
+
+/** Rotate a session token: delete old, create new. Returns new token. */
+export async function rotateSession(
+  env: Env,
+  oldToken: string,
+): Promise<{ token: string; session: Session } | null> {
+  const oldHash = await hashSessionToken(oldToken);
+  const db = createDb(env);
+
+  const [session] = await db
+    .select()
+    .from(sessions)
+    .where(eq(sessions.sessionTokenHash, oldHash))
+    .limit(1);
+
+  if (!session) return null;
+
+  const userId = (session as any).userId;
+
+  // Delete old session
+  await db.delete(sessions).where(eq(sessions.id, (session as any).id));
+
+  // Create new session
+  return createSession(env, userId);
 }
 
 /** Delete a session by token. */
@@ -108,13 +168,3 @@ export async function destroyAllUserSessions(env: Env, userId: string) {
   const db = createDb(env);
   await db.delete(sessions).where(eq(sessions.userId, userId));
 }
-
-/** Get the current user from the request cookies (Next.js server). */
-export async function getCurrentUser(env: Env): Promise<User | null> {
-  // This is intended to be called within Next.js server actions/components
-  // where `cookies()` is available. We accept the token as a parameter
-  // from callers to keep this module framework-agnostic.
-  return null;
-}
-
-export { getCurrentUser as getCurrentUserPlaceholder };

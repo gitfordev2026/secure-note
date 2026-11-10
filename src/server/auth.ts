@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { validateSession, destroySession } from "@/lib/auth";
+import { validateSession, destroySession, rotateSession } from "@/lib/auth";
 import { clearSessionCookie } from "@/lib/session-cookies";
 import { createDb } from "@/db/connection";
 import { users } from "@/db/schema";
@@ -24,13 +24,22 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
   const env = {
     DB: (process.env as any).DB,
-    SESSION_SECRET: process.env.SESSION_SECRET || "" || "",
+    SESSION_SECRET: process.env.SESSION_SECRET || "",
   };
 
   const result = await validateSession(env, token);
   if (!result) {
     clearSessionCookie();
     return null;
+  }
+
+  // Session token rotation: if token is old, rotate it
+  if (result.needsRotation) {
+    try {
+      await rotateSession(env, token);
+    } catch {
+      // Ignore rotation errors - session is still valid
+    }
   }
 
   return {

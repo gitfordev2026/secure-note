@@ -87,6 +87,33 @@ export const sessions = sqliteTable(
   }),
 );
 
+export const passwordResetTokens = sqliteTable(
+  "password_reset_tokens",
+  {
+    id: text("id")
+      .primaryKey()
+      .$default(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references((): any => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    userIdIdx: index("password_reset_tokens_user_id_idx").on(table.userId),
+    tokenHashIdx: uniqueIndex("password_reset_tokens_token_hash_idx").on(
+      table.tokenHash,
+    ),
+    expiresAtIdx: index("password_reset_tokens_expires_at_idx").on(
+      table.expiresAt,
+    ),
+  }),
+);
+
 export const auditLogs = sqliteTable(
   "audit_logs",
   {

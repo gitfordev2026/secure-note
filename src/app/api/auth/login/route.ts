@@ -7,16 +7,31 @@ import { loginSchema } from "@/validations";
 import { createDb } from "@/db/connection";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { createRateLimiter, authConfig } from "@/lib/rate-limit";
+import { withCsrfProtection } from "@/lib/csrf-middleware";
+import { generateCsrfToken, setCsrfCookie } from "@/lib/csrf";
 
-export async function POST(request: Request) {
+const rateLimiter = createRateLimiter((process.env as any).KV_RATE_LIMIT || null);
+
+async function handler(request: Request): Promise<Response> {
   try {
+    // Rate limiting by IP
+    const ip = request.headers.get("x-forwarded-for") || "unknown";
+    const rateLimit = await rateLimiter.check(`login:${ip}`, authConfig);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many login attempts. Please try again later." },
+        { status: 429 },
+      );
+    }
+
     const body = await request.json();
     const parsed = loginSchema.safeParse(body);
     if (!parsed.success) {
       const first = parsed.error.issues?.[0];
       return NextResponse.json(
         { error: first ? (first as any).message : "Invalid input" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -48,7 +63,7 @@ export async function POST(request: Request) {
 
     const { token } = await createSession(
       { DB: (process.env as any).DB, SESSION_SECRET: process.env.SESSION_SECRET || "" },
-      user.id
+      user.id,
     );
 
     const cookieStore = await cookies();
@@ -64,8 +79,20 @@ export async function POST(request: Request) {
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
     const redirectTo = user.role === "admin" ? "/admin" : "/dashboard";
-    return NextResponse.json({ success: true, redirectTo, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    const response = NextResponse.json({
+      success: true,
+      redirectTo,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    });
+
+    // Rotate CSRF token after successful auth
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(response, csrfToken);
+
+    return response;
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Login failed" }, { status: 500 });
   }
 }
+
+export const POST = withCsrfProtection(handler);

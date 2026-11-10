@@ -6,6 +6,7 @@ import { createDb } from "@/db/connection";
 import { notes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { noteSchema } from "@/validations";
+import { sanitizeNoteContent } from "@/lib/sanitize";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -24,7 +25,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     if (!note) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
-    return NextResponse.json({ note });
+    return NextResponse.json({ note: { ...note, content: sanitizeNoteContent(note.content) } });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Unauthorized" }, { status: 401 });
   }
@@ -52,6 +53,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const updateData: any = { ...parsed.data, updatedAt: new Date() };
+    if (updateData.content) updateData.content = sanitizeNoteContent(updateData.content, true);
     if (updateData.tags && Array.isArray(updateData.tags)) updateData.tags = JSON.stringify(updateData.tags);
 
     const [note] = await db.update(notes).set(updateData).where(and(eq(notes.id, id), eq(notes.userId, user.id))).returning();

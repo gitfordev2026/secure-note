@@ -6,6 +6,7 @@ import { createDb } from "@/db/connection";
 import { notes } from "@/db/schema";
 import { eq, desc, and, or, ilike, count } from "drizzle-orm";
 import { noteSchema, paginationSchema } from "@/validations";
+import { sanitizeNoteContent } from "@/lib/sanitize";
 
 export async function GET(request: Request) {
   try {
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
       notes: rows.map((r: any) => ({
         id: r.id,
         title: r.title,
-        content: r.content,
+        content: sanitizeNoteContent(r.content),
         category: r.category,
         tags: r.tags ? JSON.parse(r.tags) : [],
         isPinned: Boolean(r.isPinned),
