@@ -1,0 +1,19 @@
+# Cloudflare Pages + D1 configuration for NoteApp
+name = "noteapp"
+compatibility_date = "2026-11-12"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "noteapp-db"
+
+[dev]
+port = 3080
+
+[vars]
+NEXT_PUBLIC_APP_URL = "https://noteapp.pages.dev"
+NEXT_PUBLIC_SITE_NAME = "NoteApp"
+
+[observability]
+enabled = true
