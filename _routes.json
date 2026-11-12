@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "routes": [
+    {
+      "pattern": "/api/**",
+      "action": "serve"
+    },
+    {
+      "pattern": "/**",
+      "action": "rewrite",
+      "service": "noteapp"
+    }
+  ]
+}

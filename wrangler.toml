@@ -17,3 +17,7 @@ NEXT_PUBLIC_SITE_NAME = "NoteApp"
 
 [observability]
 enabled = true
+
+[build]
+command = "pnpm build"
+# Cloudflare Pages will auto-detect Next.js output directory
