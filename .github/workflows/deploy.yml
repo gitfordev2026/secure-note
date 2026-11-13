@@ -10,6 +10,10 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      deployments: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -35,13 +39,11 @@ jobs:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: noteapp
-          directory: .next
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy .next --project-name=noteapp --branch=${{ github.ref_name }}
 
       - name: Apply D1 migration (production)
         if: github.ref == 'refs/heads/main'
