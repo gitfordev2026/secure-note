@@ -8,6 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "noteapp-db"
+database_id = "4c48548d-84d8-4244-8c48-068fb40d5024"
 
 [dev]
 port = 3080
