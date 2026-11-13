@@ -1,6 +1,7 @@
 # Cloudflare Pages + D1 configuration for NoteApp
+# Uses @opennextjs/cloudflare adapter for Next.js 16 support
 name = "noteapp"
-compatibility_date = "2026-11-12"
+compatibility_date = "2026-11-13"
 compatibility_flags = ["nodejs_compat"]
 
 # D1 Database binding
@@ -20,4 +21,4 @@ enabled = true
 
 [build]
 command = "pnpm build"
-# Cloudflare Pages will auto-detect Next.js output directory
+# OpenNext will handle the build output for Cloudflare Pages
