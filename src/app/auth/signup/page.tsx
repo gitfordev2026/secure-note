@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import { useCsrf } from "@/hooks/use-csrf";
 
 interface SignupFormValues {
   name: string;
@@ -19,6 +20,7 @@ interface SignupFormValues {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { token: csrfToken, loading: csrfLoading, refresh: refreshCsrf } = useCsrf();
   const [form, setForm] = React.useState<SignupFormValues>({ name: "", email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -29,14 +31,21 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (csrfToken) {
+        headers["x-csrf-token"] = csrfToken;
+      }
+
       const res = await fetch("/api/auth/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(form),
       });
       const data = await res.json();
 
       if (!res.ok) {
+        // Refresh CSRF token on error in case it was invalidated
+        refreshCsrf();
         setError(data.error || "Signup failed");
         setLoading(false);
         return;
@@ -84,7 +93,12 @@ export default function SignupPage() {
             {error && (
               <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">{error}</div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            {csrfLoading && (
+              <div className="flex items-center justify-center py-2">
+                <span className="text-xs text-muted-foreground">Initializing security...</span>
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={loading || !csrfToken || csrfLoading}>
               {loading ? "Creating account..." : "Create account"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>

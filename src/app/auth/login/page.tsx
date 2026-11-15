@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import { useCsrf } from "@/hooks/use-csrf";
 
 interface LoginFormValues {
   email: string;
@@ -19,6 +20,7 @@ interface LoginFormValues {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { token: csrfToken, loading: csrfLoading, refresh: refreshCsrf } = useCsrf();
   const [form, setForm] = React.useState<LoginFormValues>({ email: "", password: "", rememberMe: false });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -29,14 +31,21 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (csrfToken) {
+        headers["x-csrf-token"] = csrfToken;
+      }
+
       const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(form),
       });
       const data = await res.json();
 
       if (!res.ok) {
+        // Refresh CSRF token on error in case it was invalidated
+        refreshCsrf();
         setError(data.error || "Login failed");
         setLoading(false);
         return;
@@ -80,7 +89,12 @@ export default function LoginPage() {
                 Forgot password?
               </Link>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            {csrfLoading && (
+              <div className="flex items-center justify-center py-2">
+                <span className="text-xs text-muted-foreground">Initializing security...</span>
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={loading || !csrfToken || csrfLoading}>
               {loading ? "Signing in..." : "Sign in"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
