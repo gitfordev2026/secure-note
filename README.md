@@ -1,4 +1,4 @@
-# NoteApp
+# secure-note
 
 A modern, secure, personal note-taking web application built with Next.js, TypeScript, Tailwind CSS, and Cloudflare D1.
 
@@ -27,7 +27,7 @@ A modern, secure, personal note-taking web application built with Next.js, TypeS
 ## Project Structure
 
 ```
-noteapp/
+secure-note/
 ├── src/
 │   ├── app/                    # Next.js App Router routes
 │   │   ├── (app)/              # Authenticated route group (dashboard layout)
@@ -81,12 +81,12 @@ openssl rand -base64 32
 
 ```bash
 # Create the D1 database
-npx wrangler d1 create noteapp-db
+npx wrangler d1 create secure-note-db
 
 # Copy the database_id from the output into wrangler.toml
 
 # Apply the migration (local)
-npx wrangler d1 execute noteapp-db --local --file=./src/db/migrations/0001_init.sql
+npx wrangler d1 execute secure-note-db --local --file=./src/db/migrations/0001_init.sql
 ```
 
 ### 4. Run locally
@@ -127,10 +127,10 @@ Apply migrations:
 
 ```bash
 # Local
-npx wrangler d1 execute noteapp-db --local --file=./src/db/migrations/000X_migration.sql
+npx wrangler d1 execute secure-note-db --local --file=./src/db/migrations/000X_migration.sql
 
 # Production (via Cloudflare dashboard or wrangler)
-npx wrangler d1 execute noteapp-db --file=./src/db/migrations/000X_migration.sql
+npx wrangler d1 execute secure-note-db --file=./src/db/migrations/000X_migration.sql
 ```
 
 ## Deployment to Cloudflare Pages
@@ -149,11 +149,11 @@ npx wrangler d1 execute noteapp-db --file=./src/db/migrations/000X_migration.sql
    - **Package manager:** `pnpm` (if available; otherwise Cloudflare will auto-detect)
 6. Add a **D1 database binding**:
    - Go to **Pages → Your project → Settings → D1 databases**
-   - Bind your `noteapp-db` database to the `DB` variable
+   - Bind your `secure-note-db` database to the `DB` variable
 7. Add environment variables/secrets:
    - `SESSION_SECRET` (generate with `openssl rand -base64 32`)
-   - `NEXT_PUBLIC_APP_URL` (your Pages URL, e.g. `https://noteapp.pages.dev`)
-   - `NEXT_PUBLIC_SITE_NAME` (optional, defaults to "NoteApp")
+   - `NEXT_PUBLIC_APP_URL` (your Pages URL, e.g. `https://secure-note.pages.dev`)
+   - `NEXT_PUBLIC_SITE_NAME` (optional, defaults to "secure-note")
    - `BOOTSTRAP_TOKEN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` (for initial admin bootstrap)
 8. Enable automatic deployments on push to your production branch
 9. Preview deployments are enabled automatically for pull requests
@@ -166,7 +166,7 @@ npx wrangler d1 execute noteapp-db --file=./src/db/migrations/000X_migration.sql
 ### Option 2: Wrangler CLI
 
 ```bash
-npx wrangler pages deploy .next --project-name noteapp
+npx wrangler pages deploy .next --project-name secure-note
 ```
 
 ## GitHub Actions

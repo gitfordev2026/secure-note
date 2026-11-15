@@ -1,5 +1,5 @@
 -- Migration: Add password reset tokens table
--- Apply with: wrangler d1 execute noteapp-db --file=./src/db/migrations/0002_password_reset.sql
+-- Apply with: wrangler d1 execute secure-note-db --file=./src/db/migrations/0002_password_reset.sql
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),

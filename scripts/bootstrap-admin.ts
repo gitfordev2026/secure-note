@@ -2,11 +2,11 @@
  * Bootstrap script to create the first administrator account.
  *
  * Usage (local dev with D1):
- *   wrangler d1 execute noteapp-db --local --file=./scripts/bootstrap-admin.sql
+ *   wrangler d1 execute secure-note-db --local --file=./scripts/bootstrap-admin.sql
  *   (then set ADMIN_EMAIL/ADMIN_PASSWORD env vars and run the seed below)
  *
  * Or run via wrangler script:
- *   npx wrangler d1 execute noteapp-db --command="INSERT ..."
+ *   npx wrangler d1 execute secure-note-db --command="INSERT ..."
  *
  * Secure approach:
  * 1. Set ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME as Cloudflare Pages/secrets or wrangler secrets

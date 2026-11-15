@@ -15,4 +15,4 @@
 # - ADMIN_NAME (for admin bootstrap)
 
 # D1 Database binding:
-# - Pages → Settings → D1 databases → Bind noteapp-db to DB
+# - Pages → Settings → D1 databases → Bind secure-note-db to DB
