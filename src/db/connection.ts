@@ -1,7 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
 import { eq, and, desc, asc, sql, ilike, or, count, inArray } from "drizzle-orm";
-import { Pool } from "@neondatabase/serverless";
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 
 import { users, notes, sessions, auditLogs } from "./schema";
 import type {
