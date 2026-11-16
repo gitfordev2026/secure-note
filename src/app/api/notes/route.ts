@@ -7,6 +7,7 @@ import { notes } from "@/db/schema";
 import { eq, desc, and, or, ilike, count } from "drizzle-orm";
 import { noteSchema, paginationSchema } from "@/validations";
 import { sanitizeNoteContent } from "@/lib/sanitize";
+import { buildSearchPattern, createErrorResponse } from "@/lib/utils";
 
 export async function GET(request: Request) {
   try {
@@ -25,13 +26,16 @@ export async function GET(request: Request) {
     });
 
     const offset = (page - 1) * pageSize;
-    const conditions = [eq(notes.userId, user.id)];
+    const conditions: any[] = [eq(notes.userId, user.id)];
     if (archived !== undefined) conditions.push(eq(notes.isArchived, archived));
     if (pinnedOnly) conditions.push(eq(notes.isPinned, true));
     if (category) conditions.push(eq(notes.category, category));
-    if (search) conditions.push(((or as any)(ilike(notes.title, `%${search}%`), ilike(notes.content, `%${search}%`)) as any));
+    if (search) {
+      const pattern = buildSearchPattern(search);
+      conditions.push(or(ilike(notes.title, pattern), ilike(notes.content, pattern)));
+    }
 
-    const allConditions = (and as any)(...(conditions as any[]));
+    const allConditions = conditions.length > 1 ? and(...conditions) : conditions[0];
 
     const [rows, totalRes] = await Promise.all([
       db.select().from(notes).where(allConditions).orderBy(desc(notes.isPinned), desc(notes.updatedAt)).limit(pageSize).offset(offset),
@@ -55,7 +59,7 @@ export async function GET(request: Request) {
       pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Unauthorized" }, { status: 401 });
+    return createErrorResponse(e, 401);
   }
 }
 
@@ -87,6 +91,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, note });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Unauthorized" }, { status: 401 });
+    return createErrorResponse(e, 401);
   }
 }

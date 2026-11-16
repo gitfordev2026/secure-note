@@ -7,20 +7,19 @@ import { loginSchema } from "@/validations";
 import { createDb } from "@/db/connection";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { createRateLimiter, authConfig } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIdentifier, rateLimiters } from "@/lib/rate-limit";
+import { createErrorResponse } from "@/lib/utils";
 import { withCsrfProtection } from "@/lib/csrf-middleware";
 import { generateCsrfToken, setCsrfCookie } from "@/lib/csrf";
-
-const rateLimiter = createRateLimiter((process.env as any).KV_RATE_LIMIT || null);
 
 async function handler(request: Request): Promise<Response> {
   try {
     // Rate limiting by IP
-    const ip = request.headers.get("x-forwarded-for") || "unknown";
-    const rateLimit = await rateLimiter.check(`login:${ip}`, authConfig);
+    const identifier = getClientIdentifier(request, "/api/auth/login");
+    const rateLimit = checkRateLimit(identifier, rateLimiters.auth);
     if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: "Too many login attempts. Please try again later." },
+        { error: "Too many login attempts. Please try again later.", retryAfter: rateLimit.retryAfter },
         { status: 429 },
       );
     }
@@ -48,6 +47,15 @@ async function handler(request: Request): Promise<Response> {
       .where(eq(users.email, email))
       .limit(1);
 
+    // Check if account is locked
+    if (user && user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      const retryAfter = Math.ceil((new Date(user.lockedUntil).getTime() - Date.now()) / 1000);
+      return NextResponse.json(
+        { error: "Account temporarily locked due to too many failed attempts. Please try again later.", retryAfter },
+        { status: 429 }
+      );
+    }
+
     if (!user) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
@@ -58,8 +66,42 @@ async function handler(request: Request): Promise<Response> {
 
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
+      // Increment failed login attempts
+      const newAttempts = (user.failedLoginAttempts || 0) + 1;
+      const updates: any = {
+        failedLoginAttempts: newAttempts,
+        updatedAt: new Date(),
+      };
+
+      // Lock account if max attempts reached
+      const MAX_FAILED_ATTEMPTS = 5;
+      const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+      if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+        updates.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
+      }
+
+      await db.update(users).set(updates).where(eq(users.id, user.id));
+
+      if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+        return NextResponse.json(
+          { error: "Too many failed attempts. Account locked for 15 minutes.", retryAfter: Math.ceil(LOCKOUT_DURATION_MS / 1000) },
+          { status: 429 }
+        );
+      }
+
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
+
+    // Reset failed login attempts on successful login
+    await db
+      .update(users)
+      .set({
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
 
     const { token } = await createSession(
       { DB: (process.env as any).DB, SESSION_SECRET: process.env.SESSION_SECRET || "" },
@@ -91,7 +133,7 @@ async function handler(request: Request): Promise<Response> {
 
     return response;
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Login failed" }, { status: 500 });
+    return createErrorResponse(e, 500);
   }
 }
 

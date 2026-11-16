@@ -7,20 +7,19 @@ import { signupSchema } from "@/validations";
 import { createDb } from "@/db/connection";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { createRateLimiter, authConfig } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIdentifier, rateLimiters } from "@/lib/rate-limit";
+import { createErrorResponse } from "@/lib/utils";
 import { withCsrfProtection } from "@/lib/csrf-middleware";
 import { generateCsrfToken, setCsrfCookie } from "@/lib/csrf";
-
-const rateLimiter = createRateLimiter((process.env as any).KV_RATE_LIMIT || null);
 
 async function handler(request: Request): Promise<Response> {
   try {
     // Rate limiting by IP
-    const ip = request.headers.get("x-forwarded-for") || "unknown";
-    const rateLimit = await rateLimiter.check(`signup:${ip}`, authConfig);
+    const identifier = getClientIdentifier(request, "/api/auth/signup");
+    const rateLimit = checkRateLimit(identifier, rateLimiters.auth);
     if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: "Too many signup attempts. Please try again later." },
+        { error: "Too many signup attempts. Please try again later.", retryAfter: rateLimit.retryAfter },
         { status: 429 },
       );
     }
@@ -87,7 +86,7 @@ async function handler(request: Request): Promise<Response> {
 
     return response;
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Signup failed" }, { status: 500 });
+    return createErrorResponse(e, 500);
   }
 }
 

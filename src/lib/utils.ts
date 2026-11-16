@@ -52,3 +52,65 @@ export function truncate(text: string, length: number): string {
   if (text.length <= length) return text;
   return text.slice(0, length).trim() + "…";
 }
+
+/**
+ * Sanitize search query to prevent SQL wildcard injection
+ * Escapes % and _ characters used in SQL LIKE patterns
+ */
+export function sanitizeSearchQuery(query: string): string {
+  if (!query) return "";
+  // Escape SQL LIKE wildcards: % (matches any sequence) and _ (matches single char)
+  return query.replace(/[%_]/g, (match) => `\\${match}`);
+}
+
+/**
+ * Sanitize search query for ILIKE patterns - returns the pattern with wildcards
+ * Use this when building the ILIKE pattern: `%${sanitizeSearchQuery(query)}%`
+ */
+export function buildSearchPattern(query: string): string {
+  const sanitized = sanitizeSearchQuery(query);
+  return `%${sanitized}%`;
+}
+
+/**
+ * Sanitize error responses to prevent information leakage
+ * Returns a safe error message without internal details
+ */
+export function sanitizeError(error: unknown): string {
+  if (error instanceof Error) {
+    // In development, return the actual error message
+    if (process.env.NODE_ENV === "development") {
+      return error.message;
+    }
+    // In production, return generic messages
+    const message = error.message.toLowerCase();
+    if (message.includes("unauthorized") || message.includes("forbidden")) {
+      return "Unauthorized";
+    }
+    if (message.includes("not found")) {
+      return "Resource not found";
+    }
+    if (message.includes("validation") || message.includes("invalid")) {
+      return "Invalid request";
+    }
+    if (message.includes("database") || message.includes("db") || message.includes("sql")) {
+      return "Database error";
+    }
+    if (message.includes("csrf")) {
+      return "Security validation failed";
+    }
+    return "Internal server error";
+  }
+  return "Internal server error";
+}
+
+/**
+ * Create a standardized error response
+ */
+export function createErrorResponse(error: unknown, status = 500): Response {
+  const message = sanitizeError(error);
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}

@@ -5,6 +5,7 @@ import { requireAdmin } from "@/server/auth";
 import { createDb } from "@/db/connection";
 import { notes, users } from "@/db/schema";
 import { eq, and, or, ilike, count, desc } from "drizzle-orm";
+import { buildSearchPattern } from "@/lib/utils";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -30,7 +31,8 @@ export async function GET(request: Request) {
     if (userId) conditions.push(eq(notes.userId, userId));
     if (category) conditions.push(eq(notes.category, category));
     if (search) {
-      conditions.push(or(ilike(notes.title, `%${search}%`), ilike(notes.content, `%${search}%`)));
+      const pattern = buildSearchPattern(search);
+      conditions.push(or(ilike(notes.title, pattern), ilike(notes.content, pattern)));
     }
     const allConditions = conditions.length > 0 ? and(...conditions) : undefined;
 

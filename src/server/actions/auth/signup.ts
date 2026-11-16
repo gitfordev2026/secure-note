@@ -9,8 +9,21 @@ import { setSessionCookie } from "@/lib/session-cookies";
 import { createDb } from "@/db/connection";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { checkRateLimit, rateLimiters } from "@/lib/rate-limit";
 
 export async function signupAction(formData: FormData) {
+  // Rate limiting: 5 requests per minute per email
+  const email = formData.get("email") as string;
+  if (email) {
+    const rateLimitResult = checkRateLimit(email, rateLimiters.auth);
+    if (!rateLimitResult.allowed) {
+      return {
+        error: "Too many signup attempts. Please try again later.",
+        retryAfter: rateLimitResult.retryAfter
+      };
+    }
+  }
+
   const raw = {
     name: formData.get("name"),
     email: formData.get("email"),
@@ -24,7 +37,7 @@ export async function signupAction(formData: FormData) {
     return { error: first ? (first as any).message : "Invalid input" };
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email: parsedEmail, password } = parsed.data;
 
   const dbInst = createDb({
     DB: (process.env as any).DB,
@@ -35,7 +48,7 @@ export async function signupAction(formData: FormData) {
   const [existing] = await dbInst
     .select()
     .from(users)
-    .where(eq(users.email, email))
+    .where(eq(users.email, parsedEmail))
     .limit(1);
 
   if (existing) {
@@ -47,7 +60,7 @@ export async function signupAction(formData: FormData) {
 
   const [user] = await dbInst
     .insert(users)
-    .values({ name, email, passwordHash, role: "user", status: "active" })
+    .values({ name, email: parsedEmail, passwordHash, role: "user", status: "active" })
     .returning();
 
   // Create session

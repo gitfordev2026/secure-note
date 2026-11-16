@@ -8,11 +8,23 @@ import { users, passwordResetTokens } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateCsrfToken } from "@/lib/csrf";
 import { hashSessionToken } from "@/lib/auth";
+import { checkRateLimit, getClientIdentifier, rateLimiters, applyRateLimit } from "@/lib/rate-limit";
+import { createErrorResponse } from "@/lib/utils";
 
 const RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
 export async function POST(request: Request) {
   try {
+    // Rate limiting: 3 requests per minute per IP for password reset
+    const identifier = getClientIdentifier(request, "/api/auth/forgot-password");
+    const rateLimitResult = checkRateLimit(identifier, rateLimiters.auth);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: "Too many password reset requests. Please try again later.", retryAfter: rateLimitResult.retryAfter },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const parsed = forgotPasswordSchema.safeParse(body);
     if (!parsed.success) {
@@ -83,6 +95,6 @@ export async function POST(request: Request) {
       message: "If an account exists, a reset link has been sent",
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Forgot password failed" }, { status: 500 });
+    return createErrorResponse(e, 500);
   }
 }

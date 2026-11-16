@@ -6,6 +6,7 @@ import { createDb } from "@/db/connection";
 import { users, notes, sessions } from "@/db/schema";
 import { eq, and, or, ilike, count, desc } from "drizzle-orm";
 import { userRoleSchema, userStatusSchema, paginationSchema } from "@/validations";
+import { buildSearchPattern } from "@/lib/utils";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -28,7 +29,8 @@ export async function GET(request: Request) {
     const offset = (page - 1) * pageSize;
     const conditions = [];
     if (search) {
-      conditions.push(or(ilike(users.name, `%${search}%`), ilike(users.email, `%${search}%`)));
+      const pattern = buildSearchPattern(search);
+      conditions.push(or(ilike(users.name, pattern), ilike(users.email, pattern)));
     }
     const allConditions = conditions.length > 0 ? and(...conditions) : undefined;
 

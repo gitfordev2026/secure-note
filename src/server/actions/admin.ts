@@ -6,6 +6,7 @@ import { users, notes, sessions, auditLogs } from "@/db/schema";
 import { eq, desc, and, or, ilike, count, sql } from "drizzle-orm";
 import { userRoleSchema, userStatusSchema, paginationSchema } from "@/validations";
 import type { PaginationMeta } from "@/types";
+import { buildSearchPattern } from "@/lib/utils";
 
 export interface AdminUser {
   id: string;
@@ -38,7 +39,8 @@ export async function getAdminUsersAction({
   const offset = (page - 1) * pageSize;
   const conditions = [];
   if (search) {
-    conditions.push(or(ilike(users.name, `%${search}%`), ilike(users.email, `%${search}%`)));
+    const pattern = buildSearchPattern(search);
+    conditions.push(or(ilike(users.name, pattern), ilike(users.email, pattern)));
   }
   const allConditions = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -153,6 +155,39 @@ export async function deleteUserAction(id: string) {
     SESSION_SECRET: process.env.SESSION_SECRET || "",
   });
 
+  // Get the current admin user from session
+  const { validateSession } = await import("@/lib/auth");
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("noteapp_session")?.value;
+
+  if (sessionToken) {
+    const validation = await validateSession(
+      { DB: (process.env as any).DB, SESSION_SECRET: process.env.SESSION_SECRET || "" },
+      sessionToken,
+    );
+
+    if (validation?.user) {
+      const adminId = validation.user.id;
+
+      // Prevent self-deletion
+      if (adminId === id) {
+        return { error: "You cannot delete your own account" };
+      }
+
+      // Prevent deleting the last admin
+      const [targetUser] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+      if (targetUser && targetUser.role === "admin") {
+        const adminCount = await db.select({ count: count() }).from(users).where(eq(users.role, "admin"));
+        const totalAdmins = Number((adminCount[0] as any).count ?? 0);
+
+        if (totalAdmins <= 1) {
+          return { error: "Cannot delete the last admin user" };
+        }
+      }
+    }
+  }
+
   await db.delete(users).where(eq(users.id, id));
   return { success: true };
 }
@@ -195,7 +230,8 @@ export async function getAdminNotesAction({
   if (userId) conditions.push(eq(notes.userId, userId));
   if (category) conditions.push(eq(notes.category, category));
   if (search) {
-    conditions.push(or(ilike(notes.title, `%${search}%`), ilike(notes.content, `%${search}%`)));
+    const pattern = buildSearchPattern(search);
+    conditions.push(or(ilike(notes.title, pattern), ilike(notes.content, pattern)));
   }
   const allConditions = conditions.length > 0 ? and(...conditions) : undefined;
 

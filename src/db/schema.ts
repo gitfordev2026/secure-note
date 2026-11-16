@@ -29,6 +29,9 @@ export const users = sqliteTable(
       .notNull()
       .default(sql`(unixepoch())`),
     lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
+    // Account lockout fields
+    failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+    lockedUntil: integer("locked_until", { mode: "timestamp" }),
   },
   (table) => ({
     emailIdx: uniqueIndex("users_email_idx").on(table.email),

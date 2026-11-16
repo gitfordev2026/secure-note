@@ -6,9 +6,21 @@ import { hashPassword, hashSessionToken } from "@/lib/auth";
 import { createDb } from "@/db/connection";
 import { users, passwordResetTokens } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { checkRateLimit, getClientIdentifier, rateLimiters } from "@/lib/rate-limit";
+import { createErrorResponse } from "@/lib/utils";
 
 export async function POST(request: Request) {
   try {
+    // Rate limiting: 5 requests per minute per IP for password reset
+    const identifier = getClientIdentifier(request, "/api/auth/reset-password");
+    const rateLimitResult = checkRateLimit(identifier, rateLimiters.auth);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: "Too many password reset attempts. Please try again later.", retryAfter: rateLimitResult.retryAfter },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const parsed = resetPasswordSchema.safeParse(body);
     if (!parsed.success) {
@@ -70,6 +82,6 @@ export async function POST(request: Request) {
       message: "Password reset successful. Please log in with your new password.",
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Reset password failed" }, { status: 500 });
+    return createErrorResponse(e, 500);
   }
 }

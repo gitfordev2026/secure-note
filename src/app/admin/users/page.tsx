@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Search } from "lucide-react";
+import { useCsrf } from "@/hooks/use-csrf";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
+  const { token: csrfToken, loading: csrfLoading, refresh: refreshCsrf } = useCsrf();
 
   React.useEffect(() => {
     loadUsers();
@@ -31,29 +33,38 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function makeAdminRequest(url: string, method: string, body?: object) {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (csrfToken) {
+      headers["x-csrf-token"] = csrfToken;
+    }
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 403) {
+      refreshCsrf();
+      throw new Error("CSRF token expired. Please try again.");
+    }
+    return res;
+  }
+
   async function toggleStatus(id: string, current: string) {
     const newStatus = current === "active" ? "disabled" : "active";
-    await fetch(`/api/admin/users/${id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
-    });
+    await makeAdminRequest(`/api/admin/users/${id}`, "PATCH", { status: newStatus });
     loadUsers();
   }
 
   async function changeRole(id: string, current: string) {
     const newRole = current === "admin" ? "user" : "admin";
-    await fetch(`/api/admin/users/${id}/role`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: newRole }),
-    });
+    await makeAdminRequest(`/api/admin/users/${id}`, "PATCH", { role: newRole });
     loadUsers();
   }
 
   async function removeUser(id: string) {
     if (!confirm("Delete this user and all their notes? This cannot be undone.")) return;
-    await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+    await makeAdminRequest(`/api/admin/users/${id}`, "DELETE");
     loadUsers();
   }
 
